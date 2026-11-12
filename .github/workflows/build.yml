@@ -32,7 +32,16 @@ jobs:
       - name: APK bauen
         env:
           BUILD_NUMBER: ${{ github.run_number }}
-        run: gradle assembleDebug --no-daemon --stacktrace
+        run: gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: Fehlerprotokoll veroeffentlichen
+        if: failure()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: buildlog-${{ github.run_number }}
+          name: Build-Protokoll ${{ github.run_number }}
+          body: Protokoll des fehlgeschlagenen Builds ${{ github.run_number }}.
+          files: build.log
 
       - name: APK umbenennen
         id: apk

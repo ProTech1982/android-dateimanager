@@ -20,10 +20,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Description
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
-import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Close
@@ -114,7 +114,7 @@ fun DateiScreen(vm: DateiViewModel) {
                 navigationIcon = {
                     if (z.ordner.absolutePath != vm.wurzel.absolutePath || z.ueberallSuchen) {
                         IconButton(onClick = { vm.nachOben() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück")
+                            Icon(Icons.Filled.ArrowBack, "Zurück")
                         }
                     }
                 },
@@ -210,7 +210,7 @@ private fun Menue(vm: DateiViewModel, z: DateiZustand) {
     var sortOffen by remember { mutableStateOf(false) }
 
     IconButton(onClick = { sortOffen = true }) {
-        Icon(Icons.AutoMirrored.Filled.Sort, "Sortieren")
+        Icon(Icons.Filled.Sort, "Sortieren")
     }
     DropdownMenu(expanded = sortOffen, onDismissRequest = { sortOffen = false }) {
         Sortierung.entries.forEach { s ->
@@ -404,10 +404,10 @@ private fun DateiTyp.symbol(): ImageVector = when (this) {
     DateiTyp.BILD -> Icons.Filled.Image
     DateiTyp.VIDEO -> Icons.Filled.Videocam
     DateiTyp.AUDIO -> Icons.Filled.MusicNote
-    DateiTyp.DOKUMENT -> Icons.AutoMirrored.Filled.Description
+    DateiTyp.DOKUMENT -> Icons.Filled.Description
     DateiTyp.ARCHIV -> Icons.Filled.Archive
     DateiTyp.APP -> Icons.Filled.Android
-    DateiTyp.SONSTIGES -> Icons.AutoMirrored.Filled.InsertDriveFile
+    DateiTyp.SONSTIGES -> Icons.Filled.InsertDriveFile
 }
 
 private fun schnellZugriffe(): List<Pair<String, File>> {
