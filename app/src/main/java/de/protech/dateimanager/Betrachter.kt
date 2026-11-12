@@ -6,6 +6,11 @@ import android.os.ParcelFileDescriptor
 import android.widget.MediaController
 import android.widget.VideoView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -135,16 +141,43 @@ private fun BildBetrachter(start: File, bilder: List<File>, onTitel: (String) ->
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
+                // Doppeltippen zoomt hinein und wieder heraus.
                 .pointerInput(seite) {
-                    detectTransformGestures { _, verschiebung, zoom, _ ->
-                        massstab = (massstab * zoom).coerceIn(1f, 6f)
+                    detectTapGestures(onDoubleTap = {
                         if (massstab > 1f) {
-                            xVerschiebung += verschiebung.x
-                            yVerschiebung += verschiebung.y
-                        } else {
+                            massstab = 1f
                             xVerschiebung = 0f
                             yVerschiebung = 0f
+                        } else {
+                            massstab = 2.5f
                         }
+                    })
+                }
+                // Eigene Gestenauswertung: Wischen wird nur dann verbraucht,
+                // wenn wirklich gezoomt wird oder das Bild vergroessert ist.
+                // Sonst bleibt die Bewegung fuer das Blaettern uebrig.
+                .pointerInput(seite) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        do {
+                            val ereignis = awaitPointerEvent()
+                            val zeiger = ereignis.changes.count { it.pressed }
+                            val zoom = ereignis.calculateZoom()
+                            val schub = ereignis.calculatePan()
+
+                            val fuerUns = zeiger > 1 || massstab > 1f
+                            if (fuerUns) {
+                                massstab = (massstab * zoom).coerceIn(1f, 6f)
+                                if (massstab > 1f) {
+                                    xVerschiebung += schub.x
+                                    yVerschiebung += schub.y
+                                } else {
+                                    xVerschiebung = 0f
+                                    yVerschiebung = 0f
+                                }
+                                ereignis.changes.forEach { if (it.positionChanged()) it.consume() }
+                            }
+                        } while (ereignis.changes.any { it.pressed })
                     }
                 },
             contentAlignment = Alignment.Center
