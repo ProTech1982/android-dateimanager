@@ -3,15 +3,16 @@ name: APK bauen
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
-    name: Debug-APK bauen
+    name: APK bauen und veroeffentlichen
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Quellcode holen
@@ -29,17 +30,38 @@ jobs:
           gradle-version: '8.11.1'
 
       - name: APK bauen
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
         run: gradle assembleDebug --no-daemon --stacktrace
 
-      - name: APK als Artefakt hochladen
-        uses: actions/upload-artifact@v4
-        with:
-          name: dateimanager-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+      - name: APK umbenennen
+        id: apk
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/debug/app-debug.apk out/Dateimanager.apk
+          version=$(grep '^appVersionName=' gradle.properties | cut -d= -f2)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          changes=$(git log -1 --pretty=%s)
+          echo "changes=$changes" >> "$GITHUB_OUTPUT"
 
-      - name: Release veroeffentlichen (nur bei Tag v*)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Als Download bereitstellen
+        if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/debug/app-debug.apk
+          tag_name: build-${{ github.run_number }}
+          name: Dateimanager ${{ steps.apk.outputs.version }} (Build ${{ github.run_number }})
+          body: |
+            Version ${{ steps.apk.outputs.version }}, Build ${{ github.run_number }}.
+
+            Änderungen in diesem Build:
+            ${{ steps.apk.outputs.changes }}
+
+            Unten auf **Dateimanager.apk** tippen, herunterladen und öffnen.
+          files: out/Dateimanager.apk
+
+      - name: Auch als Artefakt ablegen
+        uses: actions/upload-artifact@v4
+        with:
+          name: dateimanager-apk
+          path: out/Dateimanager.apk
+          if-no-files-found: error

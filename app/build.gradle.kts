@@ -12,8 +12,10 @@ android {
         applicationId = "de.protech.dateimanager"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // versionCode zaehlt mit jeder GitHub-Actions-Laufnummer hoch, damit
+        // sich ein neues Build ueber eine bestehende Installation legen laesst.
+        versionCode = (System.getenv("BUILD_NUMBER") ?: "1").toIntOrNull() ?: 1
+        versionName = (project.findProperty("appVersionName") as String?) ?: "1.0"
     }
 
     buildTypes {
