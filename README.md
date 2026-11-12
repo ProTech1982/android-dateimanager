@@ -109,7 +109,7 @@ Unter *Settings → Secrets and variables → Actions*:
 |---|---|
 | `KEYSTORE_B64` | Der Signaturschlüssel (`.jks`) als Base64 |
 | `KEYSTORE_PASSWORD` | Das Passwort des Schlüssels |
-| `KEY_ALIAS` | Optional, Standard ist `dateimanager` |
+| `KEY_ALIAS` | Wird nicht gebraucht — der Workflow liest den Alias aus dem Keystore |
 
 Ohne festen Schlüssel lässt sich ein neues Build **nicht** über eine bestehende
 Installation legen — Android verweigert dann die Aktualisierung. Der Schlüssel

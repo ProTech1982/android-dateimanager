@@ -40,11 +40,26 @@ jobs:
           mkdir -p keystore
           printf '%s' "$KEYSTORE_B64" | base64 -d > keystore/dateimanager.jks
 
+      - name: Schlüssel-Alias ermitteln
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          # Den Alias aus dem Keystore lesen, statt ihn zu raten: ein falsch
+          # gesetztes KEY_ALIAS-Secret laesst den Build sonst scheitern.
+          alias=$(keytool -list -keystore keystore/dateimanager.jks \
+                    -storepass "$KEYSTORE_PASSWORD" 2>/dev/null \
+                  | grep -i "PrivateKeyEntry" | head -1 | cut -d, -f1)
+          if [ -z "$alias" ]; then
+            echo "::error::Im Keystore wurde kein privater Schlüssel gefunden. Stimmt KEYSTORE_PASSWORD?"
+            exit 1
+          fi
+          echo "KEY_ALIAS=$alias" >> "$GITHUB_ENV"
+          echo "Alias gefunden."
+
       - name: APK bauen
         env:
           BUILD_NUMBER: ${{ github.run_number }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'dateimanager' }}
         run: gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
 
       - name: Fehlerprotokoll veroeffentlichen
