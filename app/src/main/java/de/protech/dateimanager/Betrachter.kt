@@ -30,6 +30,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -64,14 +65,45 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
+private val TEXT_ENDUNGEN = setOf(
+    "txt", "md", "csv", "json", "xml", "log", "html", "htm",
+    "ini", "cfg", "conf", "yml", "yaml", "rtf", "properties", "sh", "bat",
+    "kt", "java", "py", "c", "h", "cpp", "js", "ts", "css", "sql", "gradle",
+    "cht", "srt", "sub", "nfo", "gitignore", "env"
+)
+
+/**
+ * Sieht der Anfang der Datei nach lesbarem Text aus? Dafuer werden die ersten
+ * Kilobyte geprueft: Null-Bytes sprechen dagegen, ein hoher Anteil druckbarer
+ * Zeichen dafuer. So oeffnen sich auch Endungen, die niemand kennt.
+ */
+fun File.siehtNachTextAus(): Boolean = runCatching {
+    if (!isFile || length() == 0L) return false
+    inputStream().buffered().use { strom ->
+        val puffer = ByteArray(4096)
+        val gelesen = strom.read(puffer)
+        if (gelesen <= 0) return false
+
+        var druckbar = 0
+        for (i in 0 until gelesen) {
+            val b = puffer[i].toInt() and 0xFF
+            if (b == 0) return false
+            if (b >= 32 || b == 9 || b == 10 || b == 13) druckbar++
+        }
+        druckbar.toDouble() / gelesen > 0.9
+    }
+}.getOrDefault(false)
+
+/** Laesst sich die Datei als Text anzeigen und bearbeiten? */
+fun File.istTextartig(): Boolean =
+    extension.lowercase() in TEXT_ENDUNGEN ||
+        (dateiTyp() == DateiTyp.SONSTIGES && siehtNachTextAus())
+
 /** Welche Betrachter die App selbst mitbringt. */
 fun File.internBetrachtbar(): Boolean = when (dateiTyp()) {
     DateiTyp.BILD, DateiTyp.VIDEO, DateiTyp.AUDIO -> true
-    DateiTyp.DOKUMENT -> extension.lowercase() in setOf(
-        "pdf", "txt", "md", "csv", "json", "xml", "log", "html", "htm",
-        "ini", "cfg", "yml", "yaml", "rtf"
-    )
-    else -> false
+    DateiTyp.DOKUMENT -> extension.equals("pdf", true) || istTextartig()
+    else -> istTextartig()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,6 +115,14 @@ fun BetrachterScreen(
     onExtern: (File) -> Unit
 ) {
     var titel by remember { mutableStateOf(datei.name) }
+    var bearbeiten by remember(datei) { mutableStateOf(false) }
+
+    if (bearbeiten) {
+        TextEditorScreen(datei = datei, onSchliessen = { bearbeiten = false })
+        return
+    }
+
+    val bearbeitbar = datei.istTextartig() && datei.canWrite() && datei.length() <= EDITOR_GRENZE
 
     Scaffold(
         topBar = {
@@ -94,6 +134,11 @@ fun BetrachterScreen(
                     }
                 },
                 actions = {
+                    if (bearbeitbar) {
+                        IconButton(onClick = { bearbeiten = true }) {
+                            Icon(Icons.Filled.Edit, "Bearbeiten")
+                        }
+                    }
                     IconButton(onClick = { onExtern(datei) }) {
                         Icon(Icons.Filled.OpenInNew, "Mit anderer App öffnen")
                     }

@@ -249,7 +249,13 @@ private fun DateiListeScreen(
         )
     }
 
-    info?.let { datei -> InfoDialog(datei) { info = null } }
+    info?.let { datei ->
+        InfoDialog(
+            datei = datei,
+            onExtern = { oeffneDatei(context, datei); info = null },
+            onSchliessen = { info = null }
+        )
+    }
 
     if (loeschenOffen) {
         val anzahl = z.auswahl.size
@@ -379,7 +385,9 @@ private fun Inhalt(
             imAuswahlmodus -> vm.schalteAuswahl(eintrag)
             eintrag.istOrdner -> vm.oeffneOrdner(eintrag.datei)
             eintrag.datei.internBetrachtbar() -> onBetrachten(eintrag.datei)
-            else -> oeffneDatei(context, eintrag.datei)
+            // Unbekanntes Format: lieber die Infos zeigen als den Nutzer in
+            // einem leeren Android-Dialog stranden zu lassen.
+            else -> onInfo(eintrag.datei)
         }
     }
 
@@ -1133,7 +1141,7 @@ private fun MusterDialog(
 }
 
 @Composable
-private fun InfoDialog(datei: File, onSchliessen: () -> Unit) {
+private fun InfoDialog(datei: File, onExtern: () -> Unit, onSchliessen: () -> Unit) {
     val format = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY) }
     var summe by remember { mutableStateOf<String?>(null) }
 
@@ -1164,7 +1172,16 @@ private fun InfoDialog(datei: File, onSchliessen: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onSchliessen) { Text("Schließen") } }
+        confirmButton = {
+            if (datei.isFile) {
+                TextButton(onClick = onExtern) { Text("Mit anderer App öffnen") }
+            } else {
+                TextButton(onClick = onSchliessen) { Text("Schließen") }
+            }
+        },
+        dismissButton = {
+            if (datei.isFile) TextButton(onClick = onSchliessen) { Text("Schließen") }
+        }
     )
 }
 

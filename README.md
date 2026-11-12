@@ -45,11 +45,30 @@ andere App und ohne Netzverbindung:
 |---|---|
 | Bilder | Vollbild, Zoom, Wischen zum nächsten Bild im Ordner |
 | PDF | Seiten blättern und zoomen |
-| Text, Log, Markdown, JSON, XML | Lesen mit Markieren und Kopieren |
+| Text, Log, Markdown, JSON, XML, Quelltext | Lesen mit Markieren und Kopieren, bearbeiten im Editor |
 | CSV | Als Tabelle |
 | Video, Audio | Eingebauter Player |
 
-Der Knopf oben rechts öffnet die Datei jederzeit in einer anderen App.
+Bei **unbekannten Endungen** schaut die App in die Datei hinein: Sieht der
+Anfang nach lesbarem Text aus, öffnet sie ihn im Textbetrachter — so lassen
+sich auch exotische Formate wie `.cht` oder `.nfo` lesen. Ist es keine
+Textdatei, erscheint das Info-Fenster mit Pfad, Größe und Prüfsumme statt
+eines leeren Android-Dialogs; von dort führt ein Knopf zu „Mit anderer App
+öffnen".
+
+### Editor
+
+Bei Textdateien bis 1 MB erscheint im Betrachter ein Stift. Der Editor bringt
+mit:
+
+- Bearbeiten und Speichern, mit **automatischer Sicherungskopie** (`.bak`)
+  vor jedem Schreiben
+- **Rückgängig** über mehrere Schritte
+- **Suchen und Ersetzen** mit Trefferzahl, „Weiter" und „Alle ersetzen"
+- **Zeilennummern** und **Zeilenumbruch** zum Umschalten
+- Festbreitenschrift
+
+Beim Verlassen mit ungespeicherten Änderungen fragt die App nach.
 
 ## Bearbeiten
 
