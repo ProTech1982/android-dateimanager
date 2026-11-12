@@ -2,9 +2,32 @@ package de.protech.dateimanager
 
 import java.io.File
 
-data class DoppelGruppe(val groesse: Long, val dateien: List<File>) {
-    /** Was frei wuerde, wenn nur eine Kopie bliebe. */
-    val verschwendet: Long get() = groesse * (dateien.size - 1)
+enum class DoppelModus(val bezeichnung: String, val erklaerung: String) {
+    INHALT(
+        "Gleicher Inhalt",
+        "Vergleicht erst die Größe und dann eine Prüfsumme über den ganzen " +
+            "Inhalt. Der Name spielt keine Rolle — findet also auch Kopien, " +
+            "die anders heißen. Gründlich, aber am langsamsten."
+    ),
+    NAME(
+        "Gleicher Name",
+        "Vergleicht nur die Dateinamen. Findet dieselbe Datei in mehreren " +
+            "Ordnern, auch wenn der Inhalt sich inzwischen unterscheidet."
+    ),
+    NAME_UND_GROESSE(
+        "Name und Größe",
+        "Gleicher Name und gleiche Größe. Schnell und meist treffsicher."
+    )
+}
+
+data class DoppelGruppe(val beschreibung: String, val dateien: List<File>) {
+    private fun groesseVon(datei: File) = runCatching { datei.length() }.getOrDefault(0L)
+
+    val groesste: Long get() = dateien.maxOfOrNull { groesseVon(it) } ?: 0L
+    val gesamt: Long get() = dateien.sumOf { groesseVon(it) }
+
+    /** Was frei wuerde, wenn nur die groesste Kopie bliebe. */
+    val verschwendet: Long get() = gesamt - groesste
 }
 
 data class SpeicherPosten(val datei: File, val groesse: Long, val istOrdner: Boolean)
@@ -71,17 +94,18 @@ object Analyse {
         return treffer
     }
 
-    /**
-     * Findet Dateien mit gleichem Inhalt: erst nach Groesse gruppieren,
-     * dann nur bei gleicher Groesse die Pruefsumme berechnen.
-     */
-    fun doppelteDateien(start: File, versteckteZeigen: Boolean): List<DoppelGruppe> {
-        val nachGroesse = mutableMapOf<Long, MutableList<File>>()
+    /** Sammelt alle Dateien unterhalb von [start], gefiltert nach Typ. */
+    private fun alleDateien(
+        start: File,
+        versteckteZeigen: Boolean,
+        typen: Set<DateiTyp>,
+        maximal: Int = 60000
+    ): List<File> {
+        val gefunden = mutableListOf<File>()
         val warteschlange = ArrayDeque<File>()
         warteschlange.add(start)
-        var gezaehlt = 0
 
-        while (warteschlange.isNotEmpty() && gezaehlt < 60000) {
+        while (warteschlange.isNotEmpty() && gefunden.size < maximal) {
             val ordner = warteschlange.removeFirst()
             val kinder = runCatching { ordner.listFiles() }.getOrNull() ?: continue
             for (kind in kinder) {
@@ -90,27 +114,57 @@ object Analyse {
                 if (kind.isDirectory) {
                     warteschlange.add(kind)
                 } else {
-                    val groesse = kind.length()
-                    if (groesse > 0) {
-                        nachGroesse.getOrPut(groesse) { mutableListOf() }.add(kind)
-                        gezaehlt++
-                    }
+                    if (typen.isNotEmpty() && kind.dateiTyp() !in typen) continue
+                    if (kind.length() <= 0L) continue
+                    gefunden.add(kind)
                 }
             }
         }
+        return gefunden
+    }
 
-        val gruppen = mutableListOf<DoppelGruppe>()
-        nachGroesse.filterValues { it.size > 1 }.forEach { (groesse, dateien) ->
-            val nachSumme = mutableMapOf<String, MutableList<File>>()
-            dateien.forEach { datei ->
-                val summe = DateiAktionen.pruefsumme(datei) ?: return@forEach
-                nachSumme.getOrPut(summe) { mutableListOf() }.add(datei)
-            }
-            nachSumme.values.filter { it.size > 1 }.forEach {
-                gruppen.add(DoppelGruppe(groesse, it))
+    /**
+     * Sucht doppelte Dateien. [modus] entscheidet, was als doppelt gilt;
+     * [typen] schraenkt auf bestimmte Dateiarten ein (leer = alle).
+     */
+    fun doppelteDateien(
+        start: File,
+        versteckteZeigen: Boolean,
+        modus: DoppelModus = DoppelModus.INHALT,
+        typen: Set<DateiTyp> = emptySet()
+    ): List<DoppelGruppe> {
+        val dateien = alleDateien(start, versteckteZeigen, typen)
+
+        return when (modus) {
+            DoppelModus.NAME -> dateien
+                .groupBy { it.name.lowercase() }
+                .filterValues { it.size > 1 }
+                .map { (_, gruppe) -> DoppelGruppe(gruppe.first().name, gruppe) }
+                .sortedByDescending { it.verschwendet }
+
+            DoppelModus.NAME_UND_GROESSE -> dateien
+                .groupBy { it.name.lowercase() to it.length() }
+                .filterValues { it.size > 1 }
+                .map { (_, gruppe) -> DoppelGruppe(gruppe.first().name, gruppe) }
+                .sortedByDescending { it.verschwendet }
+
+            DoppelModus.INHALT -> {
+                val gruppen = mutableListOf<DoppelGruppe>()
+                dateien.groupBy { it.length() }
+                    .filterValues { it.size > 1 }
+                    .forEach { (_, gleichGross) ->
+                        val nachSumme = mutableMapOf<String, MutableList<File>>()
+                        gleichGross.forEach { datei ->
+                            val summe = DateiAktionen.pruefsumme(datei) ?: return@forEach
+                            nachSumme.getOrPut(summe) { mutableListOf() }.add(datei)
+                        }
+                        nachSumme.values.filter { it.size > 1 }.forEach {
+                            gruppen.add(DoppelGruppe(it.first().name, it))
+                        }
+                    }
+                gruppen.sortedByDescending { it.verschwendet }
             }
         }
-        return gruppen.sortedByDescending { it.verschwendet }
     }
 
     /** Welche Ordner und Dateien belegen den meisten Platz? */

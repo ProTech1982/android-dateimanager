@@ -91,8 +91,18 @@ Im Menü unter **Aufräumen**:
 
 - **Speicherplatz** — welche Ordner und Dateien den meisten Platz belegen,
   als Balken, antippbar zum Hinspringen.
-- **Doppelte** — Dateien mit gleichem Inhalt, auch wenn sie anders heißen.
-  Erst nach Größe gruppiert, dann über die Prüfsumme bestätigt.
+- **Doppelte** — mit drei Suchmodi zur Auswahl:
+
+  | Modus | Wie verglichen wird |
+  |---|---|
+  | Gleicher Inhalt | Erst die Größe, dann eine MD5-Prüfsumme über den ganzen Inhalt. Der Name zählt nicht, findet also auch umbenannte Kopien. Gründlich, aber am langsamsten. |
+  | Gleicher Name | Nur die Dateinamen. Findet dieselbe Datei in mehreren Ordnern, auch bei abweichendem Inhalt. |
+  | Name und Größe | Beides zusammen — schnell und meist treffsicher. |
+
+  Dazu lässt sich die Suche auf Dateiarten eingrenzen (nur Bilder, nur Musik …),
+  was sie deutlich beschleunigt. Jede Gruppe zeigt Name, Pfad, Größe und was
+  sich einsparen ließe; der Knopf oben markiert je Gruppe alle Kopien außer
+  der ersten.
 
 Dazu **Auswählen nach Muster**: Endung, Namensanfang, Alter und Mindestgröße
 lassen sich kombinieren. Die App zeigt erst Anzahl und Gesamtgröße der Treffer

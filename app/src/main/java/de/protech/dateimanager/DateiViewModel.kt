@@ -42,6 +42,9 @@ data class DateiZustand(
     val rueckgaengig: RueckgaengigAktion? = null,
     val papierkorb: List<PapierkorbEintrag> = emptyList(),
     val doppelte: List<DoppelGruppe> = emptyList(),
+    val doppelModus: DoppelModus = DoppelModus.INHALT,
+    val doppelTypen: Set<DateiTyp> = emptySet(),
+    val doppelGesucht: Boolean = false,
     val bericht: SpeicherBericht? = null,
     val musterTreffer: Int = 0,
     val musterGroesse: Long = 0L
@@ -457,12 +460,26 @@ class DateiViewModel(private val einstellungen: Einstellungen) : ViewModel() {
         )
     }
 
+    fun setzeDoppelModus(modus: DoppelModus) =
+        _zustand.update { it.copy(doppelModus = modus) }
+
+    fun schalteDoppelTyp(typ: DateiTyp) = _zustand.update { z ->
+        z.copy(doppelTypen = if (typ in z.doppelTypen) z.doppelTypen - typ else z.doppelTypen + typ)
+    }
+
+    fun doppelTypenZuruecksetzen() = _zustand.update { it.copy(doppelTypen = emptySet()) }
+
     fun findeDoppelte() {
         val z = _zustand.value
         fuehreAus(
             arbeit = {
-                val gruppen = Analyse.doppelteDateien(wurzel, z.versteckteZeigen)
-                _zustand.update { it.copy(doppelte = gruppen) }
+                val gruppen = Analyse.doppelteDateien(
+                    start = wurzel,
+                    versteckteZeigen = z.versteckteZeigen,
+                    modus = z.doppelModus,
+                    typen = z.doppelTypen
+                )
+                _zustand.update { it.copy(doppelte = gruppen, doppelGesucht = true) }
                 if (gruppen.isEmpty()) "Keine doppelten Dateien gefunden"
                 else "${gruppen.size} Gruppen gefunden"
             }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -143,9 +145,12 @@ fun WerkzeugeScreen(
                 SpeicherTeil(z.bericht, vm::erstelleBericht, onOrdner, onDatei)
             } else {
                 DoppelteTeil(
-                    gruppen = z.doppelte,
+                    z = z,
                     auswahl = auswahl,
-                    onStart = vm::findeDoppelte,
+                    onStart = { auswahl = emptySet(); vm.findeDoppelte() },
+                    onModus = vm::setzeDoppelModus,
+                    onTyp = vm::schalteDoppelTyp,
+                    onAlleTypen = vm::doppelTypenZuruecksetzen,
                     onSchalten = { pfad ->
                         auswahl = if (pfad in auswahl) auswahl - pfad else auswahl + pfad
                     },
@@ -249,30 +254,85 @@ private fun BalkenZeile(posten: SpeicherPosten, gesamt: Long, onOrdner: (File) -
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DoppelteTeil(
-    gruppen: List<DoppelGruppe>,
+    z: DateiZustand,
     auswahl: Set<String>,
     onStart: () -> Unit,
+    onModus: (DoppelModus) -> Unit,
+    onTyp: (DateiTyp) -> Unit,
+    onAlleTypen: () -> Unit,
     onSchalten: (String) -> Unit,
     onOeffnen: (File) -> Unit
 ) {
-    if (gruppen.isEmpty()) {
-        Starter(
-            "Sucht Dateien mit gleichem Inhalt — auch wenn sie anders heißen.",
-            "Doppelte suchen",
-            onStart
-        )
-        return
-    }
-
+    val gruppen = z.doppelte
     val verschwendet = gruppen.sumOf { it.verschwendet }
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
+
+        // --- Einstellungen der Suche ---
+        item {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Wonach suchen?", style = MaterialTheme.typography.titleSmall)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    DoppelModus.entries.forEach { modus ->
+                        FilterChip(
+                            selected = z.doppelModus == modus,
+                            onClick = { onModus(modus) },
+                            label = { Text(modus.bezeichnung) }
+                        )
+                    }
+                }
+                Text(
+                    z.doppelModus.erklaerung,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                HorizontalDivider()
+
+                Text("Welche Dateiarten?", style = MaterialTheme.typography.titleSmall)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        FilterChip(
+                            selected = z.doppelTypen.isEmpty(),
+                            onClick = onAlleTypen,
+                            label = { Text("Alle") }
+                        )
+                    }
+                    items(DateiTyp.entries.filter { it != DateiTyp.ORDNER }) { typ ->
+                        FilterChip(
+                            selected = typ in z.doppelTypen,
+                            onClick = { onTyp(typ) },
+                            label = { Text(typ.bezeichnung) }
+                        )
+                    }
+                }
+
+                Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (z.doppelGesucht) "Neu suchen" else "Doppelte suchen")
+                }
+            }
+            HorizontalDivider()
+        }
+
+        // --- Ergebnis ---
+        if (gruppen.isEmpty()) {
+            item {
+                Text(
+                    if (z.doppelGesucht) "Keine doppelten Dateien gefunden."
+                    else "Wähle oben aus, wonach gesucht werden soll.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(24.dp)
+                )
+            }
+            return@LazyColumn
+        }
+
         item {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    "${gruppen.size} Gruppen gefunden",
-                    style = MaterialTheme.typography.titleMedium
-                )
+                Text("${gruppen.size} Gruppen gefunden", style = MaterialTheme.typography.titleMedium)
                 Text(
                     "${groesseLesbar(verschwendet)} wären frei, wenn je eine Kopie bliebe.",
                     style = MaterialTheme.typography.bodySmall,
@@ -290,15 +350,25 @@ private fun DoppelteTeil(
 
         gruppen.forEachIndexed { index, gruppe ->
             item(key = "kopf_$index") {
-                Text(
-                    "${gruppe.dateien.size} gleiche Dateien · je ${groesseLesbar(gruppe.groesse)}",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                ) {
+                    Text(
+                        gruppe.beschreibung,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "${gruppe.dateien.size} Stück · größte ${groesseLesbar(gruppe.groesste)} · " +
+                            "${groesseLesbar(gruppe.verschwendet)} einsparbar",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
             }
             items(gruppe.dateien, key = { it.absolutePath }) { datei ->
                 val gewaehlt = datei.absolutePath in auswahl
@@ -319,7 +389,8 @@ private fun DoppelteTeil(
                     },
                     supportingContent = {
                         Text(
-                            datei.parent ?: "",
+                            groesseLesbar(runCatching { datei.length() }.getOrDefault(0L)) +
+                                "\n" + (datei.parent ?: ""),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 3
