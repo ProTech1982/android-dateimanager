@@ -127,6 +127,12 @@ fun DateiScreen(vm: DateiViewModel, einstellungen: Einstellungen) {
     val context = LocalContext.current
     val z by vm.zustand.collectAsStateWithLifecycle()
 
+    // Die Zurueck-Taste schliesst erst das Bild bzw. die Unterseite und
+    // verlaesst die App nicht sofort.
+    BackHandler(enabled = betrachtet != null || seite != Seite.DATEIEN) {
+        if (betrachtet != null) betrachtet = null else seite = Seite.DATEIEN
+    }
+
     val betrachtetDatei = betrachtet
     when {
         betrachtetDatei != null -> BetrachterScreen(
