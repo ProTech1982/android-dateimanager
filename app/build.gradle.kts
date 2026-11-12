@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val keystoreFile = rootProject.file("keystore/dateimanager.jks")
+val keystorePassword: String? = System.getenv("KEYSTORE_PASSWORD")
+val signingReady = keystoreFile.exists() && !keystorePassword.isNullOrBlank()
+
 android {
     namespace = "de.protech.dateimanager"
     compileSdk = 35
@@ -18,9 +22,22 @@ android {
         versionName = (project.findProperty("appVersionName") as String?) ?: "1.0"
     }
 
+    if (signingReady) {
+        signingConfigs.create("shared") {
+            storeFile = keystoreFile
+            storePassword = keystorePassword
+            keyAlias = System.getenv("KEY_ALIAS") ?: "dateimanager"
+            keyPassword = keystorePassword
+        }
+    }
+
     buildTypes {
+        debug {
+            if (signingReady) signingConfig = signingConfigs.getByName("shared")
+        }
         release {
             isMinifyEnabled = false
+            if (signingReady) signingConfig = signingConfigs.getByName("shared")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

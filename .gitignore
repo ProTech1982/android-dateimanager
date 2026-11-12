@@ -11,3 +11,7 @@
 local.properties
 *.apk
 *.keystore
+
+# Signaturschluessel bleibt ausserhalb des Repositories
+keystore/
+*.jks

@@ -29,10 +29,23 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      - name: Signaturschlüssel bereitstellen
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::Das Secret KEYSTORE_B64 fehlt. Ohne festen Schlüssel lässt sich kein Update über eine bestehende Installation legen."
+            exit 1
+          fi
+          mkdir -p keystore
+          printf '%s' "$KEYSTORE_B64" | base64 -d > keystore/dateimanager.jks
+
       - name: APK bauen
         env:
           BUILD_NUMBER: ${{ github.run_number }}
-        run: gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'dateimanager' }}
+        run: gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
 
       - name: Fehlerprotokoll veroeffentlichen
         if: failure()
@@ -47,7 +60,7 @@ jobs:
         id: apk
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk out/Dateimanager.apk
+          cp app/build/outputs/apk/release/app-release.apk out/Dateimanager.apk
           version=$(grep '^appVersionName=' gradle.properties | cut -d= -f2)
           echo "version=$version" >> "$GITHUB_OUTPUT"
           changes=$(git log -1 --pretty=%s)
