@@ -426,6 +426,37 @@ class DateiViewModel(private val einstellungen: Einstellungen) : ViewModel() {
         )
     }
 
+    /** Loescht uebergebene Dateien (Papierkorb) und raeumt die Doppel-Liste auf. */
+    fun loescheDateien(dateien: List<File>) {
+        if (dateien.isEmpty()) return
+        fuehreAus(
+            arbeit = {
+                val eintraege = mutableListOf<PapierkorbEintrag>()
+                var fehler: String? = null
+                dateien.forEach { datei ->
+                    Papierkorb.hinein(datei)
+                        .onSuccess { eintraege.add(it) }
+                        .onFailure { if (fehler == null) fehler = it.message }
+                }
+                if (eintraege.isNotEmpty()) {
+                    merkeRueckgaengig("Löschen rückgängig") {
+                        val zurueck = eintraege.count { Papierkorb.wiederherstellen(it).isSuccess }
+                        "$zurueck wiederhergestellt"
+                    }
+                }
+                // Die gefundenen Gruppen ohne die verschwundenen Dateien neu aufbauen.
+                _zustand.update { z ->
+                    z.copy(
+                        doppelte = z.doppelte
+                            .map { gruppe -> gruppe.copy(dateien = gruppe.dateien.filter { it.exists() }) }
+                            .filter { it.dateien.size > 1 }
+                    )
+                }
+                fehler ?: "${eintraege.size} in den Papierkorb"
+            }
+        )
+    }
+
     fun findeDoppelte() {
         val z = _zustand.value
         fuehreAus(

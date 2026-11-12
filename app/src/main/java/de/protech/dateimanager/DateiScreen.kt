@@ -147,7 +147,11 @@ fun DateiScreen(vm: DateiViewModel, einstellungen: Einstellungen) {
         seite == Seite.WERKZEUGE -> WerkzeugeScreen(
             vm = vm,
             onZurueck = { seite = Seite.DATEIEN },
-            onOrdner = { vm.oeffneOrdner(it); seite = Seite.DATEIEN }
+            onOrdner = { vm.oeffneOrdner(it); seite = Seite.DATEIEN },
+            onDatei = { datei ->
+                if (datei.internBetrachtbar()) betrachtet = datei
+                else oeffneDatei(context, datei)
+            }
         )
 
         seite == Seite.EINSTELLUNGEN -> EinstellungenScreen(einstellungen) { seite = Seite.DATEIEN }

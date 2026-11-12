@@ -105,8 +105,11 @@ fun BetrachterScreen(
             when {
                 datei.dateiTyp() == DateiTyp.BILD -> BildBetrachter(
                     start = datei,
+                    // Nur blaettern, wenn das Bild wirklich in der Nachbarliste
+                    // steht - sonst zeigte der Betrachter ein fremdes Bild.
                     bilder = nachbarn.filter { it.dateiTyp() == DateiTyp.BILD }
-                        .ifEmpty { listOf(datei) },
+                        .takeIf { liste -> liste.any { it.absolutePath == datei.absolutePath } }
+                        ?: listOf(datei),
                     onTitel = { titel = it }
                 )
 

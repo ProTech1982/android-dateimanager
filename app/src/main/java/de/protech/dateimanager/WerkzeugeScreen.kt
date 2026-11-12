@@ -6,17 +6,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -28,31 +33,83 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WerkzeugeScreen(vm: DateiViewModel, onZurueck: () -> Unit, onOrdner: (File) -> Unit) {
+fun WerkzeugeScreen(
+    vm: DateiViewModel,
+    onZurueck: () -> Unit,
+    onOrdner: (File) -> Unit,
+    onDatei: (File) -> Unit
+) {
     val z by vm.zustand.collectAsStateWithLifecycle()
     var reiter by remember { mutableIntStateOf(0) }
+    var auswahl by remember { mutableStateOf(setOf<String>()) }
+    var loeschenOffen by remember { mutableStateOf(false) }
+
+    if (loeschenOffen) {
+        AlertDialog(
+            onDismissRequest = { loeschenOffen = false },
+            title = { Text("${auswahl.size} Dateien löschen?") },
+            text = {
+                Text(
+                    "Die Dateien wandern in den Papierkorb und lassen sich von dort " +
+                        "wiederherstellen. Von jeder Gruppe bleibt mindestens eine " +
+                        "Datei übrig, solange du nicht alle Häkchen setzt."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.loescheDateien(auswahl.map { File(it) })
+                    auswahl = emptySet()
+                    loeschenOffen = false
+                }) { Text("In den Papierkorb") }
+            },
+            dismissButton = {
+                TextButton(onClick = { loeschenOffen = false }) { Text("Abbrechen") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Aufräumen") },
+                title = {
+                    Text(if (auswahl.isEmpty()) "Aufräumen" else "${auswahl.size} ausgewählt")
+                },
                 navigationIcon = {
                     IconButton(onClick = onZurueck) { Icon(Icons.Filled.ArrowBack, "Zurück") }
+                },
+                actions = {
+                    if (reiter == 1 && z.doppelte.isNotEmpty()) {
+                        IconButton(onClick = {
+                            // Pro Gruppe die erste Datei behalten, den Rest markieren.
+                            auswahl = z.doppelte
+                                .flatMap { gruppe -> gruppe.dateien.drop(1) }
+                                .map { it.absolutePath }
+                                .toSet()
+                        }) { Icon(Icons.Filled.DoneAll, "Duplikate auswählen") }
+                    }
+                    if (auswahl.isNotEmpty()) {
+                        IconButton(onClick = { loeschenOffen = true }) {
+                            Icon(Icons.Filled.Delete, "In den Papierkorb")
+                        }
+                    }
                 }
             )
         }
@@ -61,7 +118,7 @@ fun WerkzeugeScreen(vm: DateiViewModel, onZurueck: () -> Unit, onOrdner: (File) 
             TabRow(selectedTabIndex = reiter) {
                 Tab(
                     selected = reiter == 0,
-                    onClick = { reiter = 0 },
+                    onClick = { reiter = 0; auswahl = emptySet() },
                     text = { Text("Speicherplatz") }
                 )
                 Tab(
@@ -83,25 +140,36 @@ fun WerkzeugeScreen(vm: DateiViewModel, onZurueck: () -> Unit, onOrdner: (File) 
                     }
                 }
             } else if (reiter == 0) {
-                SpeicherTeil(z.bericht, onStart = vm::erstelleBericht, onOrdner = onOrdner)
+                SpeicherTeil(z.bericht, vm::erstelleBericht, onOrdner, onDatei)
             } else {
-                DoppelteTeil(z.doppelte, onStart = vm::findeDoppelte, onOrdner = onOrdner)
+                DoppelteTeil(
+                    gruppen = z.doppelte,
+                    auswahl = auswahl,
+                    onStart = vm::findeDoppelte,
+                    onSchalten = { pfad ->
+                        auswahl = if (pfad in auswahl) auswahl - pfad else auswahl + pfad
+                    },
+                    onOeffnen = onDatei
+                )
             }
         }
     }
 }
 
+// --- Speicherplatz --------------------------------------------------------
+
 @Composable
 private fun SpeicherTeil(
     bericht: SpeicherBericht?,
     onStart: () -> Unit,
-    onOrdner: (File) -> Unit
+    onOrdner: (File) -> Unit,
+    onDatei: (File) -> Unit
 ) {
     if (bericht == null) {
         Starter(
-            text = "Zeigt, welche Ordner und Dateien den meisten Platz belegen.",
-            knopf = "Speicher auswerten",
-            onStart = onStart
+            "Zeigt, welche Ordner und Dateien den meisten Platz belegen.",
+            "Speicher auswerten",
+            onStart
         )
         return
     }
@@ -115,18 +183,28 @@ private fun SpeicherTeil(
             )
         }
         item { Ueberschrift("Größte Ordner") }
-        items(bericht.ordner) { posten ->
-            BalkenZeile(posten, bericht.gesamt, onOrdner)
-        }
+        items(bericht.ordner) { posten -> BalkenZeile(posten, bericht.gesamt, onOrdner) }
+
         item { Ueberschrift("Größte einzelne Dateien") }
         items(bericht.groessteDateien) { posten ->
             ListItem(
-                modifier = Modifier.clickable {
-                    posten.datei.parentFile?.let(onOrdner)
+                modifier = Modifier.clickable { onDatei(posten.datei) },
+                headlineContent = {
+                    Text(posten.datei.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 },
-                headlineContent = { Text(posten.datei.name, maxLines = 1) },
                 supportingContent = {
-                    Text(groesseLesbar(posten.groesse), style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        groesseLesbar(posten.groesse) + "\n" +
+                            (posten.datei.parent ?: ""),
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                trailingContent = {
+                    TextButton(onClick = { posten.datei.parentFile?.let(onOrdner) }) {
+                        Text("Ordner")
+                    }
                 }
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
@@ -166,17 +244,22 @@ private fun BalkenZeile(posten: SpeicherPosten, gesamt: Long, onOrdner: (File) -
     }
 }
 
+// --- Doppelte -------------------------------------------------------------
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DoppelteTeil(
     gruppen: List<DoppelGruppe>,
+    auswahl: Set<String>,
     onStart: () -> Unit,
-    onOrdner: (File) -> Unit
+    onSchalten: (String) -> Unit,
+    onOeffnen: (File) -> Unit
 ) {
     if (gruppen.isEmpty()) {
         Starter(
-            text = "Sucht Dateien mit gleichem Inhalt — auch wenn sie anders heißen.",
-            knopf = "Doppelte suchen",
-            onStart = onStart
+            "Sucht Dateien mit gleichem Inhalt — auch wenn sie anders heißen.",
+            "Doppelte suchen",
+            onStart
         )
         return
     }
@@ -185,44 +268,72 @@ private fun DoppelteTeil(
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
-            Text(
-                "${gruppen.size} Gruppen · ${groesseLesbar(verschwendet)} wären frei, " +
-                    "wenn je eine Kopie bliebe",
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-        items(gruppen) { gruppe ->
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    "${gruppe.dateien.size}× ${groesseLesbar(gruppe.groesse)}",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary
+                    "${gruppen.size} Gruppen gefunden",
+                    style = MaterialTheme.typography.titleMedium
                 )
-                gruppe.dateien.forEach { datei ->
-                    Text(
-                        text = datei.absolutePath,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { datei.parentFile?.let(onOrdner) }
-                            .padding(vertical = 3.dp)
-                    )
-                }
+                Text(
+                    "${groesseLesbar(verschwendet)} wären frei, wenn je eine Kopie bliebe.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "Das Häkchen oben rechts markiert in jeder Gruppe alle Kopien " +
+                        "außer der ersten. Tippe auf einen Namen, um die Datei anzusehen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
         }
-        item {
-            Text(
-                "Zum Löschen tippe einen Pfad an, um in den Ordner zu springen. " +
-                    "Gelöschtes landet im Papierkorb.",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(16.dp)
-            )
+
+        gruppen.forEachIndexed { index, gruppe ->
+            item(key = "kopf_$index") {
+                Text(
+                    "${gruppe.dateien.size} gleiche Dateien · je ${groesseLesbar(gruppe.groesse)}",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+            items(gruppe.dateien, key = { it.absolutePath }) { datei ->
+                val gewaehlt = datei.absolutePath in auswahl
+                ListItem(
+                    leadingContent = {
+                        Checkbox(
+                            checked = gewaehlt,
+                            onCheckedChange = { onSchalten(datei.absolutePath) }
+                        )
+                    },
+                    headlineContent = {
+                        Text(
+                            datei.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            datei.parent ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 3
+                        )
+                    },
+                    modifier = Modifier.clickable { onOeffnen(datei) }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+            }
         }
     }
 }
+
+// --- Gemeinsames ----------------------------------------------------------
 
 @Composable
 private fun Starter(text: String, knopf: String, onStart: () -> Unit) {
