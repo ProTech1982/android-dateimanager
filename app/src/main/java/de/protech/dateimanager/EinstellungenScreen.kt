@@ -3,6 +3,8 @@ package de.protech.dateimanager
 import android.os.Build
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -168,6 +170,82 @@ fun EinstellungenScreen(einstellungen: Einstellungen, onZurueck: () -> Unit) {
                             checked = e.zweiSpalten,
                             onCheckedChange = { einstellungen.setzeZweiSpalten(it) }
                         )
+                    }
+                }
+            }
+
+            Abschnitt("Versteckte Dateien") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Farblich hervorheben")
+                            Text(
+                                "Dateien und Ordner, die mit einem Punkt beginnen, " +
+                                    "bekommen eine eigene Farbe und Umrandung.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = e.versteckteHervorheben,
+                            onCheckedChange = { einstellungen.setzeVersteckteHervorheben(it) }
+                        )
+                    }
+
+                    if (e.versteckteHervorheben) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            GRUNDFARBEN.forEach { farbe ->
+                                val gewaehlt =
+                                    kotlin.math.abs(e.versteckteFarbton - farbe.farbton) < 1f
+                                Box(
+                                    modifier = Modifier
+                                        .size(if (gewaehlt) 40.dp else 34.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(ausHsl(farbe.farbton, 0.75f, 0.45f))
+                                        .pointerInput(farbe.farbton) {
+                                            detectTapGestures {
+                                                einstellungen.setzeVersteckteFarbton(farbe.farbton)
+                                            }
+                                        }
+                                )
+                            }
+                        }
+
+                        Text("Eigene Farbe", style = MaterialTheme.typography.titleSmall)
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Farbkreisel(
+                                farbton = e.versteckteFarbton,
+                                aktiv = true,
+                                onFarbton = { einstellungen.setzeVersteckteFarbton(it) }
+                            )
+                        }
+
+                        // Vorschau, damit die Wirkung sofort sichtbar ist
+                        val dunkel = isSystemInDarkTheme()
+                        val istDunkel = when (e.farbModus) {
+                            FarbModus.HELL -> false
+                            FarbModus.DUNKEL -> true
+                            FarbModus.SYSTEM -> dunkel
+                        }
+                        val hervor = hervorhebung(e.versteckteFarbton, istDunkel)
+                        Text("Vorschau", style = MaterialTheme.typography.titleSmall)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.5.dp, hervor.rand, RoundedCornerShape(8.dp))
+                                .background(hervor.hintergrund)
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(".nomedia", style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
                 }
             }

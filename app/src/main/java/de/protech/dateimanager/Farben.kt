@@ -94,3 +94,19 @@ fun schemaAus(farbton: Float, intensitaet: Float, dunkel: Boolean): ColorScheme 
         )
     }
 }
+
+/** Hintergrund- und Randfarbe fuer hervorgehobene (versteckte) Eintraege. */
+data class HervorhebungsFarben(val hintergrund: Color, val rand: Color)
+
+fun hervorhebung(farbton: Float, dunkel: Boolean): HervorhebungsFarben =
+    if (dunkel) {
+        HervorhebungsFarben(
+            hintergrund = ausHsl(farbton, 0.55f, 0.20f),
+            rand = ausHsl(farbton, 0.70f, 0.52f)
+        )
+    } else {
+        HervorhebungsFarben(
+            hintergrund = ausHsl(farbton, 0.70f, 0.93f),
+            rand = ausHsl(farbton, 0.70f, 0.55f)
+        )
+    }

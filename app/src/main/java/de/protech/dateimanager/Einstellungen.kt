@@ -26,7 +26,11 @@ data class EinstellungsZustand(
     val ansicht: Ansicht = Ansicht.LISTE,
     val zweiSpalten: Boolean = true,
     val lesezeichen: List<String> = emptyList(),
-    val papierkorbTage: Int = 30
+    val papierkorbTage: Int = 30,
+    /** Versteckte Dateien farblich hervorheben? */
+    val versteckteHervorheben: Boolean = true,
+    /** Farbton der Hervorhebung auf dem Farbkreis (0-360). */
+    val versteckteFarbton: Float = 32f
 )
 
 /**
@@ -50,7 +54,9 @@ class Einstellungen(context: Context) {
         ansicht = Ansicht.entries.getOrElse(speicher.getInt("ansicht", 0)) { Ansicht.LISTE },
         zweiSpalten = speicher.getBoolean("zweiSpalten", true),
         lesezeichen = speicher.getStringSet("lesezeichen", emptySet())!!.toList().sorted(),
-        papierkorbTage = speicher.getInt("papierkorbTage", 30)
+        papierkorbTage = speicher.getInt("papierkorbTage", 30),
+        versteckteHervorheben = speicher.getBoolean("versteckteHervorheben", true),
+        versteckteFarbton = speicher.getFloat("versteckteFarbton", 32f)
     )
 
     private fun schreibe(aenderung: SharedPreferences.Editor.() -> Unit) {
@@ -79,6 +85,14 @@ class Einstellungen(context: Context) {
     fun setzeZweiSpalten(an: Boolean) = schreibe { putBoolean("zweiSpalten", an) }
 
     fun setzePapierkorbTage(tage: Int) = schreibe { putInt("papierkorbTage", tage) }
+
+    fun setzeVersteckteHervorheben(an: Boolean) = schreibe {
+        putBoolean("versteckteHervorheben", an)
+    }
+
+    fun setzeVersteckteFarbton(farbton: Float) = schreibe {
+        putFloat("versteckteFarbton", farbton)
+    }
 
     fun schalteLesezeichen(pfad: String) {
         val vorhanden = _zustand.value.lesezeichen.toMutableSet()

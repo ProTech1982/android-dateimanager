@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -380,6 +381,19 @@ private fun Inhalt(
     onBetrachten: (File) -> Unit,
     onInfo: (File) -> Unit
 ) {
+    val dunkel = androidx.compose.foundation.isSystemInDarkTheme()
+    val istDunkel = when (e.farbModus) {
+        FarbModus.HELL -> false
+        FarbModus.DUNKEL -> true
+        FarbModus.SYSTEM -> dunkel
+    }
+    val hervor = remember(e.versteckteFarbton, istDunkel) {
+        hervorhebung(e.versteckteFarbton, istDunkel)
+    }
+    val markiere: (DateiEintrag) -> Boolean = { eintrag ->
+        e.versteckteHervorheben && eintrag.name.startsWith(".")
+    }
+
     val oeffne: (DateiEintrag) -> Unit = { eintrag ->
         when {
             imAuswahlmodus -> vm.schalteAuswahl(eintrag)
@@ -401,6 +415,7 @@ private fun Inhalt(
                 RasterKachel(
                     eintrag = eintrag,
                     ausgewaehlt = eintrag.datei.absolutePath in z.auswahl,
+                    hervor = if (markiere(eintrag)) hervor else null,
                     onKlick = { oeffne(eintrag) },
                     onLangerKlick = { vm.schalteAuswahl(eintrag) }
                 )
@@ -412,6 +427,7 @@ private fun Inhalt(
                 BaumZeile(
                     eintrag = eintrag,
                     ausgewaehlt = eintrag.datei.absolutePath in z.auswahl,
+                    hervor = if (markiere(eintrag)) hervor else null,
                     onKlick = { oeffne(eintrag) },
                     onLangerKlick = { vm.schalteAuswahl(eintrag) }
                 )
@@ -423,6 +439,7 @@ private fun Inhalt(
                 EintragZeile(
                     eintrag = eintrag,
                     ausgewaehlt = eintrag.datei.absolutePath in z.auswahl,
+                    hervor = if (markiere(eintrag)) hervor else null,
                     imAuswahlmodus = imAuswahlmodus,
                     pfadZeigen = z.ueberallSuchen,
                     wurzel = vm.wurzel,
@@ -507,16 +524,27 @@ private fun OrdnerZeile(name: String, ebene: Int, hervorgehoben: Boolean, onKlic
 private fun BaumZeile(
     eintrag: DateiEintrag,
     ausgewaehlt: Boolean,
+    hervor: HervorhebungsFarben?,
     onKlick: () -> Unit,
     onLangerKlick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = if (hervor != null && !ausgewaehlt) 6.dp else 0.dp, vertical = 2.dp)
+            .then(
+                if (hervor != null && !ausgewaehlt) {
+                    Modifier.clip(RoundedCornerShape(8.dp))
+                        .border(1.5.dp, hervor.rand, RoundedCornerShape(8.dp))
+                } else Modifier
+            )
             .combinedClickable(onClick = onKlick, onLongClick = onLangerKlick)
             .background(
-                if (ausgewaehlt) MaterialTheme.colorScheme.secondaryContainer
-                else Color.Transparent
+                when {
+                    ausgewaehlt -> MaterialTheme.colorScheme.secondaryContainer
+                    hervor != null -> hervor.hintergrund
+                    else -> Color.Transparent
+                }
             )
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -547,6 +575,7 @@ private fun BaumZeile(
 private fun RasterKachel(
     eintrag: DateiEintrag,
     ausgewaehlt: Boolean,
+    hervor: HervorhebungsFarben?,
     onKlick: () -> Unit,
     onLangerKlick: () -> Unit
 ) {
@@ -554,9 +583,17 @@ private fun RasterKachel(
         modifier = Modifier
             .padding(6.dp)
             .clip(RoundedCornerShape(10.dp))
+            .then(
+                if (hervor != null && !ausgewaehlt) {
+                    Modifier.border(1.5.dp, hervor.rand, RoundedCornerShape(10.dp))
+                } else Modifier
+            )
             .background(
-                if (ausgewaehlt) MaterialTheme.colorScheme.secondaryContainer
-                else Color.Transparent
+                when {
+                    ausgewaehlt -> MaterialTheme.colorScheme.secondaryContainer
+                    hervor != null -> hervor.hintergrund
+                    else -> Color.Transparent
+                }
             )
             .combinedClickable(onClick = onKlick, onLongClick = onLangerKlick)
             .padding(6.dp),
@@ -593,6 +630,7 @@ private fun RasterKachel(
 private fun EintragZeile(
     eintrag: DateiEintrag,
     ausgewaehlt: Boolean,
+    hervor: HervorhebungsFarben?,
     imAuswahlmodus: Boolean,
     pfadZeigen: Boolean,
     wurzel: File,
@@ -603,10 +641,21 @@ private fun EintragZeile(
     val datumsFormat = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY) }
 
     ListItem(
-        colors = if (ausgewaehlt) {
-            ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-        } else ListItemDefaults.colors(),
-        modifier = Modifier.combinedClickable(onClick = onKlick, onLongClick = onLangerKlick),
+        colors = when {
+            ausgewaehlt ->
+                ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            hervor != null -> ListItemDefaults.colors(containerColor = hervor.hintergrund)
+            else -> ListItemDefaults.colors()
+        },
+        modifier = Modifier
+            .then(
+                if (hervor != null && !ausgewaehlt) {
+                    Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.5.dp, hervor.rand, RoundedCornerShape(8.dp))
+                } else Modifier
+            )
+            .combinedClickable(onClick = onKlick, onLongClick = onLangerKlick),
         leadingContent = {
             if (imAuswahlmodus) {
                 Checkbox(checked = ausgewaehlt, onCheckedChange = { onKlick() })

@@ -17,7 +17,11 @@ Netzverbindung der App ist die Update-Prüfung bei GitHub.
 - **Namenssuche** über das Lupen-Symbol.
 - **Sortieren** nach Name, Datum, Größe oder Typ; zweites Antippen dreht die
   Reihenfolge um.
-- **Versteckte Dateien** ein- und ausblenden.
+- **Versteckte Dateien** ein- und ausblenden. Eingeblendet bekommen sie eine
+  eigene Hintergrundfarbe und Umrandung, damit man sie nicht mit gewöhnlichen
+  Dateien verwechselt. Farbe frei wählbar in den Einstellungen (sieben
+  Vorgaben oder Farbkreisel), mit Vorschau; die Hervorhebung lässt sich auch
+  ganz abschalten.
 - **Schnellzugriff** auf Downloads, DCIM, Bilder, Videos, Musik, Dokumente.
 - **Brotkrumen-Pfad** zum Zurückspringen in jede Ebene.
 - Vorschaubilder für Fotos und Videos, Material-You-Farben ab Android 12,
