@@ -40,6 +40,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 class MainActivity : ComponentActivity() {
@@ -47,20 +48,24 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
+        val einstellungen = Einstellungen(this)
+
         setContent {
-            DateimanagerTheme {
+            val eZustand by einstellungen.zustand.collectAsStateWithLifecycle()
+
+            DateimanagerTheme(einstellungen = eZustand) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Einstieg()
+                    Einstieg(einstellungen)
                 }
             }
         }
     }
 }
 
-/** Prueft, ob die App den Speicher lesen darf. */
 fun hatSpeicherRecht(context: Context): Boolean =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         Environment.isExternalStorageManager()
@@ -71,25 +76,22 @@ fun hatSpeicherRecht(context: Context): Boolean =
     }
 
 @Composable
-private fun Einstieg() {
+private fun Einstieg(einstellungen: Einstellungen) {
     val context = LocalContext.current
     var darfLesen by remember { mutableStateOf(hatSpeicherRecht(context)) }
 
-    // Nach der Rueckkehr aus den Systemeinstellungen neu pruefen.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val beobachter = LifecycleEventObserver { _, ereignis ->
-            if (ereignis == Lifecycle.Event.ON_RESUME) {
-                darfLesen = hatSpeicherRecht(context)
-            }
+            if (ereignis == Lifecycle.Event.ON_RESUME) darfLesen = hatSpeicherRecht(context)
         }
         lifecycleOwner.lifecycle.addObserver(beobachter)
         onDispose { lifecycleOwner.lifecycle.removeObserver(beobachter) }
     }
 
     if (darfLesen) {
-        val viewModel: DateiViewModel = viewModel()
-        DateiScreen(viewModel)
+        val viewModel: DateiViewModel = viewModel(factory = DateiViewModel.Fabrik(einstellungen))
+        DateiScreen(viewModel, einstellungen)
     } else {
         RechteScreen(onGewaehrt = { darfLesen = hatSpeicherRecht(context) })
     }
@@ -104,26 +106,20 @@ private fun RechteScreen(onGewaehrt: () -> Unit) {
     ) { onGewaehrt() }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
+        modifier = Modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            imageVector = Icons.Filled.FolderOpen,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary
-        )
+        Icon(Icons.Filled.FolderOpen, null, tint = MaterialTheme.colorScheme.primary)
         Text(
-            text = "Zugriff auf den Speicher",
+            "Zugriff auf den Speicher",
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center
         )
         Text(
-            text = "Damit dir alle Ordner, Bilder und Dokumente angezeigt werden " +
-                "können, braucht die App die Berechtigung zum Lesen des Speichers. " +
-                "Es werden keine Daten verschickt – die App hat keinen Internetzugriff.",
+            "Damit dir alle Ordner, Bilder und Dokumente angezeigt werden können " +
+                "und du sie bearbeiten kannst, braucht die App die Berechtigung für " +
+                "den Dateizugriff. Es werden keine Daten verschickt.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center
         )
@@ -139,8 +135,6 @@ private fun RechteScreen(onGewaehrt: () -> Unit) {
             } else {
                 starter.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
             }
-        }) {
-            Text("Berechtigung erteilen")
-        }
+        }) { Text("Berechtigung erteilen") }
     }
 }

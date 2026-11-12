@@ -12,6 +12,7 @@ object DateiRepository {
     fun ladeOrdner(ordner: File, versteckteZeigen: Boolean): List<DateiEintrag> {
         val kinder = runCatching { ordner.listFiles() }.getOrNull() ?: return emptyList()
         return kinder
+            .filter { !Papierkorb.gehoertZumPapierkorb(it) }
             .filter { versteckteZeigen || !it.name.startsWith(".") }
             .map { it.alsEintrag() }
     }
@@ -37,6 +38,7 @@ object DateiRepository {
             val kinder = runCatching { aktuell.listFiles() }.getOrNull() ?: continue
 
             for (kind in kinder) {
+                if (Papierkorb.gehoertZumPapierkorb(kind)) continue
                 if (!versteckteZeigen && kind.name.startsWith(".")) continue
 
                 if (kind.isDirectory) {

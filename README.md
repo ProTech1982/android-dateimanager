@@ -23,6 +23,34 @@ Netzverbindung der App ist die Update-Prüfung bei GitHub.
 - Vorschaubilder für Fotos und Videos, Material-You-Farben ab Android 12,
   heller und dunkler Modus.
 
+## Aussehen
+
+- **Sieben Grundfarben** — Blau, Grün, Gelb, Rosa, Braun, Violett, Türkis.
+- **Farbkreisel** für eine eigene Farbe, dazu ein Regler für die Intensität
+  von blass bis kräftig.
+- **Material You** übernimmt auf Wunsch die Farben des Hintergrundbilds
+  (ab Android 12).
+- **Hell, dunkel oder wie das System** — frei wählbar.
+- **Drei Ansichten**: Liste, Raster (gut für Bilder) und Baum. Im Querformat
+  zeigt die App auf Wunsch zwei Spalten wie ein Explorer: links die Ordner,
+  rechts der Inhalt.
+- Ansicht und Sortierung werden je Ordner gemerkt.
+
+## Betrachten
+
+Bilder, PDFs, Texte und Medien öffnet die App selbst — ohne Umweg über eine
+andere App und ohne Netzverbindung:
+
+| Format | Was geht |
+|---|---|
+| Bilder | Vollbild, Zoom, Wischen zum nächsten Bild im Ordner |
+| PDF | Seiten blättern und zoomen |
+| Text, Log, Markdown, JSON, XML | Lesen mit Markieren und Kopieren |
+| CSV | Als Tabelle |
+| Video, Audio | Eingebauter Player |
+
+Der Knopf oben rechts öffnet die Datei jederzeit in einer anderen App.
+
 ## Bearbeiten
 
 Ein **langer Druck** auf einen Eintrag startet die Auswahl. Danach wählt ein
@@ -36,6 +64,9 @@ Tippen weitere Einträge an und ab, und die obere Leiste zeigt die Aktionen:
 | Umbenennen | Menü der Auswahlleiste, bei genau einem Eintrag |
 | Teilen | Menü der Auswahlleiste |
 | Alle auswählen | Menü der Auswahlleiste |
+| Stapel-Umbenennen | Menü der Auswahlleiste, ab zwei Einträgen |
+| Als ZIP packen / Entpacken | Menü der Auswahlleiste |
+| Infos (Pfad, Größe, MD5) | Menü der Auswahlleiste oder das i in der Zeile |
 | Neuer Ordner | Schaltfläche unten rechts |
 
 Nach *Kopieren* oder *Ausschneiden* erscheint über der Liste eine Leiste mit
@@ -43,6 +74,32 @@ Nach *Kopieren* oder *Ausschneiden* erscheint über der Liste eine Leiste mit
 Dateien werden nie überschrieben: Gleichnamiges landet als `Name (2).jpg`
 daneben. Ordner lassen sich nicht in sich selbst verschieben, und Löschen
 fragt vorher nach, weil Ordner mitsamt Inhalt verschwinden.
+
+**Rückgängig**: Nach Verschieben, Umbenennen und Löschen erscheint unten ein
+Hinweis mit „Rückgängig". Dieselbe Möglichkeit steckt auch im Menü.
+
+## Papierkorb
+
+Gelöschtes wandert zuerst in den Papierkorb und lässt sich von dort mit einem
+Tipp wiederherstellen — samt ursprünglichem Pfad. Endgültig weg ist es erst
+beim Leeren. Nach einer einstellbaren Frist (Vorgabe: 30 Tage) räumt die App
+alte Einträge selbst weg.
+
+## Aufräumen
+
+Im Menü unter **Aufräumen**:
+
+- **Speicherplatz** — welche Ordner und Dateien den meisten Platz belegen,
+  als Balken, antippbar zum Hinspringen.
+- **Doppelte** — Dateien mit gleichem Inhalt, auch wenn sie anders heißen.
+  Erst nach Größe gruppiert, dann über die Prüfsumme bestätigt.
+
+Dazu **Auswählen nach Muster**: Endung, Namensanfang, Alter und Mindestgröße
+lassen sich kombinieren. Die App zeigt erst Anzahl und Gesamtgröße der Treffer
+und wählt sie dann aus — gelöscht wird nichts von allein.
+
+**Lesezeichen**: Jeder Ordner lässt sich über das Menü merken und erscheint
+danach dort zum Anspringen.
 
 ## Aktualisieren
 
@@ -67,7 +124,14 @@ die dafür nötige Berechtigung ist dasselbe Muster, das Schadsoftware benutzt.
 | `DateiScreen.kt` | Gesamte Oberfläche |
 | `DateiViewModel.kt` | Zustand, Filter, Auswahl, Zwischenablage |
 | `DateiRepository.kt` | Ordner lesen, Speicher durchsuchen |
-| `DateiAktionen.kt` | Kopieren, Verschieben, Löschen, Umbenennen |
+| `DateiAktionen.kt` | Kopieren, Verschieben, Umbenennen, ZIP, Prüfsummen |
+| `Papierkorb.kt` | Papierkorb mit Wiederherstellen und Frist |
+| `Analyse.kt` | Muster, doppelte Dateien, Speicherauswertung |
+| `Betrachter.kt` | Bilder, PDF, Text, CSV, Video und Audio |
+| `Einstellungen.kt` | Gespeicherte Vorlieben |
+| `Farben.kt` | Farbschemata aus Farbton und Intensität |
+| `EinstellungenScreen.kt` | Einstellungen mit Farbkreisel |
+| `PapierkorbScreen.kt` / `WerkzeugeScreen.kt` | Papierkorb und Aufräumen |
 | `DateiTyp.kt` | Kategorien, Endungen, MIME-Typen |
 | `Updater.kt` / `UpdateDialog.kt` | Update-Prüfung |
 | `Theme.kt` | Farben, heller und dunkler Modus |
