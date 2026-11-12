@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Visibility
@@ -208,6 +209,11 @@ private fun Suchfeld(text: String, onAendern: (String) -> Unit) {
 private fun Menue(vm: DateiViewModel, z: DateiZustand) {
     var offen by remember { mutableStateOf(false) }
     var sortOffen by remember { mutableStateOf(false) }
+    var updateOffen by remember { mutableStateOf(false) }
+
+    if (updateOffen) {
+        UpdateDialog(onSchliessen = { updateOffen = false })
+    }
 
     IconButton(onClick = { sortOffen = true }) {
         Icon(Icons.AutoMirrored.Filled.Sort, "Sortieren")
@@ -246,6 +252,11 @@ private fun Menue(vm: DateiViewModel, z: DateiZustand) {
             text = { Text("Interner Speicher") },
             leadingIcon = { Icon(Icons.Filled.Home, null) },
             onClick = { vm.zurWurzel(); offen = false }
+        )
+        DropdownMenuItem(
+            text = { Text("Nach Updates suchen") },
+            leadingIcon = { Icon(Icons.Filled.SystemUpdate, null) },
+            onClick = { offen = false; updateOffen = true }
         )
         HorizontalDivider()
         schnellZugriffe().forEach { (bezeichnung, ordner) ->
