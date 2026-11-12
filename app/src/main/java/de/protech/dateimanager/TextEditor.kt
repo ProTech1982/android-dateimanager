@@ -229,11 +229,14 @@ fun TextEditorScreen(datei: File, onSchliessen: () -> Unit) {
                             wert = neu
                         },
                         textStyle = schrift,
-                        softWrap = umbruch,
                         cursorBrush = androidx.compose.ui.graphics.SolidColor(
                             MaterialTheme.colorScheme.primary
                         ),
-                        modifier = if (umbruch) Modifier.fillMaxWidth() else Modifier
+                        // Ohne Umbruch bekommt das Feld eine sehr grosse Breite,
+                        // damit lange Zeilen stehen bleiben und seitlich
+                        // gescrollt werden kann.
+                        modifier = if (umbruch) Modifier.fillMaxWidth()
+                        else Modifier.width(2400.dp)
                     )
                 }
             }
