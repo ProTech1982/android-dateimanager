@@ -31,35 +31,44 @@ jobs:
 
       - name: Signaturschlüssel bereitstellen
         env:
-          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEY_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          if [ -z "$KEYSTORE_B64" ]; then
-            echo "::error::Das Secret KEYSTORE_B64 fehlt. Ohne festen Schlüssel lässt sich kein Update über eine bestehende Installation legen."
+          # Ohne festen Schlüssel lässt sich kein Update über eine bestehende
+          # Installation legen. Deshalb bricht der Build bei jedem Fehler ab,
+          # statt still eine Debug-APK zu bauen.
+          if [ -z "$KEY_B64" ] || [ -z "$KEY_PASS" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "::error::Signatur-Secrets fehlen (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS)."
             exit 1
           fi
-          mkdir -p keystore
-          printf '%s' "$KEYSTORE_B64" | base64 -d > keystore/dateimanager.jks
-
-      - name: Schlüssel-Alias ermitteln
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        run: |
-          # Den Alias aus dem Keystore lesen, statt ihn zu raten: ein falsch
-          # gesetztes KEY_ALIAS-Secret laesst den Build sonst scheitern.
-          alias=$(keytool -list -keystore keystore/dateimanager.jks \
-                    -storepass "$KEYSTORE_PASSWORD" 2>/dev/null \
-                  | grep -i "PrivateKeyEntry" | head -1 | cut -d, -f1)
-          if [ -z "$alias" ]; then
-            echo "::error::Im Keystore wurde kein privater Schlüssel gefunden. Stimmt KEYSTORE_PASSWORD?"
+          KS="$RUNNER_TEMP/release.keystore"
+          if ! printf '%s' "$KEY_B64" | tr -d '[:space:]' | base64 --decode > "$KS"; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 ist kein gültiges Base64."
             exit 1
           fi
-          echo "KEY_ALIAS=$alias" >> "$GITHUB_ENV"
-          echo "Alias gefunden."
+          if ! keytool -J-Duser.language=en -list -keystore "$KS" -storepass "$KEY_PASS" > "$RUNNER_TEMP/ks.txt" 2>&1; then
+            cat "$RUNNER_TEMP/ks.txt"
+            echo "::error::Keystore nicht lesbar - ANDROID_KEYSTORE_PASSWORD passt nicht."
+            exit 1
+          fi
+          if ! grep -qi "^$KEY_ALIAS,.*PrivateKeyEntry" "$RUNNER_TEMP/ks.txt"; then
+            echo "Gefundene Einträge:"
+            grep -i "PrivateKeyEntry" "$RUNNER_TEMP/ks.txt" | cut -d, -f1 || true
+            echo "::error::ANDROID_KEY_ALIAS passt zu keinem Schlüssel im Keystore."
+            exit 1
+          fi
+          echo "Keystore in Ordnung, Alias: $KEY_ALIAS"
+          {
+            echo "ANDROID_KEYSTORE_FILE=$KS"
+            echo "ANDROID_KEYSTORE_PASSWORD=$KEY_PASS"
+            echo "ANDROID_KEY_ALIAS=$KEY_ALIAS"
+            echo "ANDROID_KEY_PASSWORD=$KEY_PASS"
+          } >> "$GITHUB_ENV"
 
       - name: APK bauen
         env:
           BUILD_NUMBER: ${{ github.run_number }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
 
       - name: Fehlerprotokoll veroeffentlichen

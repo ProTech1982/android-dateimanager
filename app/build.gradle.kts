@@ -4,9 +4,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val keystoreFile = rootProject.file("keystore/dateimanager.jks")
-val keystorePassword: String? = System.getenv("KEYSTORE_PASSWORD")
-val signingReady = keystoreFile.exists() && !keystorePassword.isNullOrBlank()
+val keystoreFile: File? = System.getenv("ANDROID_KEYSTORE_FILE")?.let { File(it) }
+val keystorePassword: String? = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+val keystoreAlias: String? = System.getenv("ANDROID_KEY_ALIAS")
+val signingReady = keystoreFile?.exists() == true &&
+    !keystorePassword.isNullOrBlank() && !keystoreAlias.isNullOrBlank()
 
 android {
     namespace = "de.protech.dateimanager"
@@ -26,7 +28,7 @@ android {
         signingConfigs.create("shared") {
             storeFile = keystoreFile
             storePassword = keystorePassword
-            keyAlias = System.getenv("KEY_ALIAS") ?: "dateimanager"
+            keyAlias = keystoreAlias
             keyPassword = keystorePassword
         }
     }
