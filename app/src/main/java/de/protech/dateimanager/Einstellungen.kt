@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import org.json.JSONArray
+import org.json.JSONObject
 
 enum class FarbModus(val bezeichnung: String) {
     SYSTEM("Wie das System"), HELL("Immer hell"), DUNKEL("Immer dunkel")
@@ -101,6 +103,74 @@ class Einstellungen(context: Context) {
     }
 
     fun istLesezeichen(pfad: String) = pfad in _zustand.value.lesezeichen
+
+    // --- Sicherung und Wiederherstellung ---------------------------------
+
+    /** Alle Einstellungen als JSON-Text, zum Ablegen in einer Datei. */
+    fun alsSicherung(): String {
+        val eintraege = JSONArray()
+        for ((schluessel, wert) in speicher.all) {
+            val (typ, json) = when (wert) {
+                is Boolean -> "boolean" to wert
+                is Int -> "int" to wert
+                is Long -> "long" to wert
+                is Float -> "float" to wert.toDouble()
+                is String -> "string" to wert
+                is Set<*> -> "set" to JSONArray(wert.map { it.toString() })
+                else -> continue
+            }
+            eintraege.put(JSONObject().put("k", schluessel).put("t", typ).put("v", json))
+        }
+        return JSONObject()
+            .put("format", SICHERUNG_FORMAT)
+            .put("version", SICHERUNG_VERSION)
+            .put("erstellt", java.time.LocalDateTime.now().toString())
+            .put("eintraege", eintraege)
+            .toString(2)
+    }
+
+    /**
+     * Ersetzt alle Einstellungen durch die der Sicherung und gibt die Anzahl
+     * der Werte zurueck. Bei einer kaputten Datei bleibt alles unveraendert.
+     */
+    fun ausSicherung(text: String): Int {
+        val wurzel = JSONObject(text)
+        require(wurzel.optString("format") == SICHERUNG_FORMAT) { "Das ist keine Sicherung des Dateimanagers." }
+        require(wurzel.optInt("version", 0) <= SICHERUNG_VERSION) { "Die Sicherung stammt von einer neueren App-Version." }
+        val eintraege = wurzel.getJSONArray("eintraege")
+
+        val editor = speicher.edit()
+        editor.clear()
+        var anzahl = 0
+        for (i in 0 until eintraege.length()) {
+            val o = eintraege.getJSONObject(i)
+            val schluessel = o.getString("k")
+            when (o.getString("t")) {
+                "boolean" -> editor.putBoolean(schluessel, o.getBoolean("v"))
+                "int" -> editor.putInt(schluessel, o.getInt("v"))
+                "long" -> editor.putLong(schluessel, o.getLong("v"))
+                "float" -> editor.putFloat(schluessel, o.getDouble("v").toFloat())
+                "string" -> editor.putString(schluessel, o.getString("v"))
+                "set" -> {
+                    val arr = o.getJSONArray("v")
+                    editor.putStringSet(schluessel, (0 until arr.length()).map { arr.getString(it) }.toSet())
+                }
+                else -> continue
+            }
+            anzahl++
+        }
+        check(editor.commit()) { "Einstellungen konnten nicht gespeichert werden" }
+        _zustand.value = lade()
+        return anzahl
+    }
+
+    companion object {
+        private const val SICHERUNG_FORMAT = "dateimanager-backup"
+        private const val SICHERUNG_VERSION = 1
+
+        fun sicherungsName(): String =
+            "dateimanager-sicherung-${java.time.LocalDate.now()}.json"
+    }
 
     // --- Ansicht und Sortierung je Ordner --------------------------------
 

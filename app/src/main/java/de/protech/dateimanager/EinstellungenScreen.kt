@@ -32,6 +32,18 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +62,37 @@ import kotlin.math.sin
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EinstellungenScreen(einstellungen: Einstellungen, onZurueck: () -> Unit) {
+    val context = LocalContext.current
+    var rueckfrage by remember { mutableStateOf(false) }
+
+    val sichern = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.openOutputStream(uri, "wt").use { out ->
+                requireNotNull(out) { "Datei konnte nicht geschrieben werden" }
+                out.write(einstellungen.alsSicherung().toByteArray(Charsets.UTF_8))
+            }
+        }
+            .onSuccess { Toast.makeText(context, "Sicherung gespeichert", Toast.LENGTH_LONG).show() }
+            .onFailure { Toast.makeText(context, "Sicherung fehlgeschlagen: ${it.message}", Toast.LENGTH_LONG).show() }
+    }
+    val laden = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            val text = context.contentResolver.openInputStream(uri).use { input ->
+                requireNotNull(input) { "Datei konnte nicht gelesen werden" }
+                input.readBytes().toString(Charsets.UTF_8)
+            }
+            einstellungen.ausSicherung(text)
+        }
+            .onSuccess { Toast.makeText(context, "Wiederhergestellt ($it Werte)", Toast.LENGTH_LONG).show() }
+            .onFailure { Toast.makeText(context, "Wiederherstellen fehlgeschlagen: ${it.message}", Toast.LENGTH_LONG).show() }
+    }
+
     val e by einstellungen.zustand.collectAsStateWithLifecycle()
 
     Scaffold(
@@ -270,7 +313,40 @@ fun EinstellungenScreen(einstellungen: Einstellungen, onZurueck: () -> Unit) {
                     )
                 }
             }
+
+            Abschnitt("Sicherung") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Speichert alle Einstellungen, Lesezeichen und Sortierungen in einer Datei, " +
+                            "die eine Neuinstallation übersteht. Deine Dateien sind nicht betroffen.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Button(
+                        onClick = { sichern.launch(Einstellungen.sicherungsName()) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Sicherung speichern") }
+                    OutlinedButton(
+                        onClick = { rueckfrage = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Sicherung wiederherstellen") }
+                }
+            }
         }
+    }
+
+    if (rueckfrage) {
+        AlertDialog(
+            onDismissRequest = { rueckfrage = false },
+            title = { Text("Sicherung wiederherstellen?") },
+            text = { Text("Die jetzigen Einstellungen werden durch die Sicherung ersetzt.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    rueckfrage = false
+                    laden.launch(arrayOf("application/json", "text/plain", "*/*"))
+                }) { Text("Wiederherstellen") }
+            },
+            dismissButton = { TextButton(onClick = { rueckfrage = false }) { Text("Abbrechen") } }
+        )
     }
 }
 
